@@ -18,7 +18,8 @@ var pressed = {
 var cfg = {
   fps: 60,
   width: 640,
-  height: 480
+  height: 480,
+  isGameOver: false
 };
 
 var $container = $('#container');
@@ -38,9 +39,11 @@ function Player (x, y) {
     y: 0
   };
   this.speed = 5;
-  this.health = 3;
-  this.width = 50;
-  this.height = 50;
+  this.health = 100;
+  this.width = 130;
+  this.height = 94;
+  this.timeSinceLastShot = 0;
+  this.timeSinceLastDamaged = 0;
   this.element = $('<div class="player">').appendTo($container);
 }
 
@@ -54,8 +57,8 @@ function Enemy (x, y) {
     y: 0
   };
   this.health = 1;
-  this.width = 50;
-  this.height = 50;
+  this.width = 267;
+  this.height = 200;
   this.element = $('<div class="enemy">').appendTo($container);
   this.isAttacking = false;
   this.timeWhenAttackStarted = 0;
@@ -71,8 +74,8 @@ function Bullet (x, y) {
     y: 10
   };
   this.health = 1;
-  this.width = 5;
-  this.height = 20;
+  this.width = 318;
+  this.height = 385;
   this.element = $('<div class="bullet">').appendTo($container);
 }
 
@@ -95,8 +98,11 @@ function setup () {
 function update () {
 
   // Spawn bullet
-  if (pressed.up) {
-    bullets.push(new Bullet(player.position.x, player.position.y + player.height));
+  var currentTime = Date.now();
+  var threshold = 100;
+  if (pressed.up && currentTime - player.timeSinceLastShot > threshold) {
+    bullets.push(new Bullet(player.position.x, player.position.y - 100))
+    player.timeSinceLastShot = currentTime;
   }
 
   // Left-right movement
@@ -122,7 +128,28 @@ function update () {
 
 
   // TODO: Collision detection & health adjustment
-
+ for(var i = 0; i < bullets.length; i++){
+   var bullet = bullets[i];
+   for(var j = 0; j < enemies.length; j++){
+     var enemy = enemies[j];
+     if(isColliding(bullet,enemy)){
+       enemy.health--;
+       bullet.health--;
+       break;
+     }
+   }
+ }
+ 
+ var stunTime = 500;
+ if(currentTime - player.timeSinceLastDamaged > stunTime){
+   for(var i = 0; i < enemies.length; i++){
+     var enemy = enemies[i];
+     if(isColliding(enemy, player)){
+       player.health--;
+       player.timeSinceLastDamaged = currentTime;
+     }
+   }
+ }
 
   // Player bounds checking
   if (player.position.x < 0) {
@@ -151,9 +178,38 @@ function update () {
   }
 
   // TODO: Lose condition (i.e. if player is dead)
+  if(!cfg.isGameOver && player.health <= 0){
+    player.element.remove();
+    cfg.isGameOver = true;
+    alert('You Lose!')
+  }
 
   // TODO: Win condition (i.e. if all enemies are dead)
+  if(!cfg.isGameOver && enemies.length === 0){
+    cfg.isGameOver = true;
+    alert('You WIN')
+  }
 }
+
+
+function isColliding(e1, e2){
+  var e1left= e1.position.x - e1.width/2;
+  var e1right = e1.position.x + e1.width/2;
+  var e1up = e1.position.y + e1.width/2;
+  var e1bottom = e1.position.y - e1.width/2;
+  
+    var e2left= e2.position.x - e2.width/2;
+  var e2right = e2.position.x + e2.width/2;
+  var e2up = e2.position.y + e2.width/2;
+  var e2bottom = e2.position.y - e2.width/2;
+  
+  return !(
+    e1bottom > e2up ||
+    e1up < e2bottom ||
+    e1left > e2right ||
+    e1right < e2left);
+}
+
 
 // Enemy attack movement
 function runEnemyAI (enemies) {
